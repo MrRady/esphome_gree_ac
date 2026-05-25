@@ -107,10 +107,38 @@ void SinclairACCNT::control(const climate::ClimateCall &call)
 
     if (call.get_mode().has_value())
     {
-        ESP_LOGV(TAG, "Requested mode change");
-        reqmodechange = true;
-        this->update_ = ACUpdate::UpdateStart;
-        this->mode = *call.get_mode();
+        climate::ClimateMode requested = *call.get_mode();
++        if (requested == climate::CLIMATE_MODE_HEAT_COOL)
++        {
++            /* HEAT_COOL is used as a "resume" sentinel (see traits() in esppac.cpp).
++               Home Assistant's power button has no dedicated power command in the Gree
++               protocol, so HA "turns on" by selecting a mode and would otherwise force
++               HEAT. We treat HEAT_COOL as "power on and resume the last active mode". */
++            if (this->mode != climate::CLIMATE_MODE_OFF)
++            {
++                /* Unit is already running: there is nothing to resume. Do not send a SET
++                   packet (it would just make the unit beep without changing anything) and
++                   snap the UI back from the transient HEAT_COOL selection to the real mode. */
++                ESP_LOGD(TAG, "HEAT_COOL requested while already on, ignoring");
++                this->publish_state();
++            }
++            else
++            {
++                reqmodechange = true;
++                this->update_ = ACUpdate::UpdateStart;
++                this->mode = (this->mode_internal_ == climate::CLIMATE_MODE_OFF)
++                                 ? climate::CLIMATE_MODE_AUTO  /* no known previous mode yet */
++                                 : this->mode_internal_;
++                ESP_LOGD(TAG, "Power on requested, resuming last mode (%d)", (int) this->mode);
++            }
++        }
++        else
++        {
++            ESP_LOGV(TAG, "Requested mode change");
++            reqmodechange = true;
++            this->update_ = ACUpdate::UpdateStart;
++            this->mode = requested;
++        }
     }
 
     if (call.get_target_temperature().has_value())
