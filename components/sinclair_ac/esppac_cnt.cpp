@@ -546,9 +546,36 @@ void SinclairACCNT::send_packet()
     }
 
     /* SLEEP --------------------------------------------------------------------------- */
-    if (this->sleep_state_)
+    uint8_t sleep_level = 0;
+    if (this->sleep_state_ == sleep_options::L1)
+    {
+        sleep_level = 1;
+    }
+    else if (this->sleep_state_ == sleep_options::L2)
+    {
+        sleep_level = 2;
+    }
+    else if (this->sleep_state_ == sleep_options::L3)
+    {
+        sleep_level = 3;
+    }
+    else
+    {
+        sleep_level = 0;
+    }
+    if (sleep_level & 1)
     {
         packet[protocol::REPORT_SLEEP_BYTE] |= protocol::REPORT_SLEEP_MASK;
+    }
+    if (sleep_level & 2)
+    {
+        packet[protocol::REPORT_SLEEP_LVL_BYTE] |= protocol::REPORT_SLEEP_LVL_MASK;
+    }
+
+    /* SILENCE --------------------------------------------------------------------------- */
+    if (this->silence_state_)
+    {
+        packet[protocol::REPORT_SILENCE_BYTE] |= protocol::REPORT_SILENCE_MASK;
     }
 
     /* XFAN --------------------------------------------------------------------------- */
@@ -797,8 +824,10 @@ bool SinclairACCNT::processUnitReport()
     this->update_display(determine_display());
     this->update_display_unit(determine_display_unit());
 
-    this->update_plasma(determine_plasma());
     this->update_sleep(determine_sleep());
+
+    this->update_plasma(determine_plasma());
+    this->update_silence(determine_silence());
     this->update_xfan(determine_xfan());
     this->update_save(determine_save());
 
@@ -1030,8 +1059,27 @@ bool SinclairACCNT::determine_plasma(){
     return plasma1 || plasma2;
 }
 
-bool SinclairACCNT::determine_sleep(){
-    return (this->serialProcess_.data[protocol::REPORT_SLEEP_BYTE] & protocol::REPORT_SLEEP_MASK) != 0;
+std::string SinclairACCNT::determine_sleep(){
+    int lvl = ((this->serialProcess_.data[protocol::REPORT_SLEEP_BYTE] & protocol::REPORT_SLEEP_MASK) ? 1 : 0)
+            + ((this->serialProcess_.data[protocol::REPORT_SLEEP_LVL_BYTE] & protocol::REPORT_SLEEP_LVL_MASK) ? 2 : 0);
+
+    switch (lvl) {
+        case 0:
+            return sleep_options::OFF;
+        case 1:
+            return sleep_options::L1;
+        case 2:
+            return sleep_options::L2;
+        case 3:
+            return sleep_options::L3;
+        default:
+            ESP_LOGW(TAG, "Received unknown sleep level");
+            return sleep_options::OFF;
+    }
+}
+
+bool SinclairACCNT::determine_silence(){
+    return (this->serialProcess_.data[protocol::REPORT_SILENCE_BYTE] & protocol::REPORT_SILENCE_MASK) != 0;
 }
 
 bool SinclairACCNT::determine_xfan(){
@@ -1069,15 +1117,16 @@ void SinclairACCNT::on_horizontal_swing_change(const std::string &swing)
     this->horizontal_swing_state_ = swing;
 }
 
-void SinclairACCNT::on_display_change(const std::string &display)
+void SinclairACCNT::on_display_change(bool display)
 {
     if (this->state_ != ACState::Ready)
         return;
 
-    ESP_LOGD(TAG, "Setting display mode");
+    ESP_LOGD(TAG, "Setting display %s", display ? "on" : "off");
 
     this->update_ = ACUpdate::UpdateStart;
-    this->display_state_ = display;
+    /* No separate display "mode" is exposed anymore: on = show set temperature. */
+    this->display_state_ = display ? display_options::SET : display_options::OFF;
 }
 
 void SinclairACCNT::on_display_unit_change(const std::string &display_unit)
@@ -1113,15 +1162,26 @@ void SinclairACCNT::on_beeper_change(bool beeper)
     this->beeper_state_ = beeper;
 }
 
-void SinclairACCNT::on_sleep_change(bool sleep)
+void SinclairACCNT::on_sleep_change(const std::string &sleep)
 {
     if (this->state_ != ACState::Ready)
         return;
 
-    ESP_LOGD(TAG, "Setting sleep");
+    ESP_LOGD(TAG, "Setting sleep level");
 
     this->update_ = ACUpdate::UpdateStart;
     this->sleep_state_ = sleep;
+}
+
+void SinclairACCNT::on_silence_change(bool silence)
+{
+    if (this->state_ != ACState::Ready)
+        return;
+
+    ESP_LOGD(TAG, "Setting silence");
+
+    this->update_ = ACUpdate::UpdateStart;
+    this->silence_state_ = silence;
 }
 
 void SinclairACCNT::on_xfan_change(bool xfan)

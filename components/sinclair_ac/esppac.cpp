@@ -26,6 +26,10 @@ climate::ClimateTraits SinclairAC::traits()
                                 climate::CLIMATE_MODE_AUTO, climate::CLIMATE_MODE_COOL,
                                 climate::CLIMATE_MODE_HEAT, climate::CLIMATE_MODE_FAN_ONLY, climate::CLIMATE_MODE_DRY});
 
+    /* Custom fan modes are configured on the Climate entity in setup() (merged into
+       the traits by get_traits()): ClimateTraits::set_supported_custom_fan_modes() is
+       deprecated and scheduled for removal in a future ESPHome release. */
+
     traits.set_supported_swing_modes({climate::CLIMATE_SWING_OFF, climate::CLIMATE_SWING_BOTH,
                                       climate::CLIMATE_SWING_VERTICAL, climate::CLIMATE_SWING_HORIZONTAL});
 
@@ -162,10 +166,10 @@ void SinclairAC::update_display(const std::string &display)
 {
     this->display_state_ = display;
 
-    if (this->display_select_ != nullptr && 
-        this->display_select_->current_option().str() != this->display_state_)
+    bool on = (display != display_options::OFF);
+    if (this->display_switch_ != nullptr && this->display_switch_->state != on)
     {
-        this->display_select_->publish_state(this->display_state_);
+        this->display_switch_->publish_state(on);
     }
 }
 
@@ -200,13 +204,24 @@ void SinclairAC::update_beeper(bool beeper)
     }
 }
 
-void SinclairAC::update_sleep(bool sleep)
+void SinclairAC::update_sleep(const std::string &sleep)
 {
     this->sleep_state_ = sleep;
 
-    if (this->sleep_switch_ != nullptr)
+    if (this->sleep_select_ != nullptr &&
+        this->sleep_select_->current_option().str() != this->sleep_state_)
     {
-        this->sleep_switch_->publish_state(this->sleep_state_);
+        this->sleep_select_->publish_state(this->sleep_state_);
+    }
+}
+
+void SinclairAC::update_silence(bool silence)
+{
+    this->silence_state_ = silence;
+
+    if (this->silence_switch_ != nullptr)
+    {
+        this->silence_switch_->publish_state(this->silence_state_);
     }
 }
 
@@ -291,17 +306,13 @@ void SinclairAC::set_horizontal_swing_select(select::Select *horizontal_swing_se
     });
 }
 
-void SinclairAC::set_display_select(select::Select *display_select)
+void SinclairAC::set_display_switch(switch_::Switch *display_switch)
 {
-    this->display_select_ = display_select;
-    this->display_select_->add_on_state_callback([this](size_t index) {
-        auto selected = this->display_select_->at(index);
-        if (!selected.has_value())
+    this->display_switch_ = display_switch;
+    this->display_switch_->add_on_state_callback([this](bool state) {
+        if (state == (this->display_state_ != display_options::OFF))
             return;
-        auto &value = selected.value();
-        if (value == this->display_state_)
-            return;
-        this->on_display_change(value);
+        this->on_display_change(state);
     });
 }
 
@@ -316,6 +327,20 @@ void SinclairAC::set_display_unit_select(select::Select *display_unit_select)
         if (value == this->display_unit_state_)
             return;
         this->on_display_unit_change(value);
+    });
+}
+
+void SinclairAC::set_sleep_select(select::Select *sleep_select)
+{
+    this->sleep_select_ = sleep_select;
+    this->sleep_select_->add_on_state_callback([this](size_t index) {
+        auto selected = this->sleep_select_->at(index);
+        if (!selected.has_value())
+            return;
+        auto &value = selected.value();
+        if (value == this->sleep_state_)
+            return;
+        this->on_sleep_change(value);
     });
 }
 
@@ -339,13 +364,13 @@ void SinclairAC::set_beeper_switch(switch_::Switch *beeper_switch)
     });
 }
 
-void SinclairAC::set_sleep_switch(switch_::Switch *sleep_switch)
+void SinclairAC::set_silence_switch(switch_::Switch *silence_switch)
 {
-    this->sleep_switch_ = sleep_switch;
-    this->sleep_switch_->add_on_state_callback([this](bool state) {
-        if (state == this->sleep_state_)
+    this->silence_switch_ = silence_switch;
+    this->silence_switch_->add_on_state_callback([this](bool state) {
+        if (state == this->silence_state_)
             return;
-        this->on_sleep_change(state);
+        this->on_silence_change(state);
     });
 }
 

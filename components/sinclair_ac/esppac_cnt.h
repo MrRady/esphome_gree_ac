@@ -117,6 +117,12 @@ namespace protocol {
     static const uint8_t REPORT_SLEEP_BYTE     = 4;
     static const uint8_t REPORT_SLEEP_MASK     = 0b00001000;
 
+    static const uint8_t REPORT_SLEEP_LVL_BYTE = 16;
+    static const uint8_t REPORT_SLEEP_LVL_MASK = 0b00010000;
+
+    static const uint8_t REPORT_SILENCE_BYTE   = 16;
+    static const uint8_t REPORT_SILENCE_MASK   = 0b00000100;
+
     static const uint8_t REPORT_XFAN_BYTE      = 6;
     static const uint8_t REPORT_XFAN_MASK      = 0b00001000;
 
@@ -156,12 +162,14 @@ class SinclairACCNT : public SinclairAC {
         void on_horizontal_swing_change(const std::string &swing) override;
         void on_vertical_swing_change(const std::string &swing) override;
 
-        void on_display_change(const std::string &display) override;
+        void on_display_change(bool display) override;
         void on_display_unit_change(const std::string &display_unit) override;
+
+        void on_sleep_change(const std::string &sleep) override;
 
         void on_plasma_change(bool plasma) override;
         void on_beeper_change(bool beeper) override;
-        void on_sleep_change(bool sleep) override;
+        void on_silence_change(bool silence) override;
         void on_xfan_change(bool xfan) override;
         void on_save_change(bool save) override;
 
@@ -198,8 +206,10 @@ class SinclairACCNT : public SinclairAC {
         std::string determine_display();
         std::string determine_display_unit();
 
+        std::string determine_sleep();
+
         bool determine_plasma();
-        bool determine_sleep();
+        bool determine_silence();
         bool determine_xfan();
         bool determine_save();
 };

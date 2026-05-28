@@ -57,7 +57,8 @@ namespace vertical_swing_options{
     const std::string CUP   = "11 - Constant - Up";
 }
 
-/* this must be same as DISPLAY_OPTIONS in climate.py */
+/* internal display-mode sentinels (no longer exposed as a select; used by
+   send_packet() and on_display_change() — display on/off is a switch now) */
 namespace display_options{
     const std::string OFF  = "0 - OFF";
     const std::string AUTO = "1 - Auto";
@@ -70,6 +71,14 @@ namespace display_options{
 namespace display_unit_options{
     const std::string DEGC = "C";
     const std::string DEGF = "F";
+}
+
+/* this must be same as SLEEP_OPTIONS in climate.py */
+namespace sleep_options{
+    const std::string OFF = "0 - Off";
+    const std::string L1  = "1 - Niveau 1";
+    const std::string L2  = "2 - Niveau 2";
+    const std::string L3  = "3 - Niveau 3";
 }
 
 typedef enum {
@@ -93,12 +102,14 @@ class SinclairAC : public Component, public uart::UARTDevice, public climate::Cl
         void set_vertical_swing_select(select::Select *vertical_swing_select);
         void set_horizontal_swing_select(select::Select *horizontal_swing_select);
 
-        void set_display_select(select::Select *display_select);
+        void set_display_switch(switch_::Switch *display_switch);
         void set_display_unit_select(select::Select *display_unit_select);
+
+        void set_sleep_select(select::Select *sleep_select);
 
         void set_plasma_switch(switch_::Switch *plasma_switch);
         void set_beeper_switch(switch_::Switch *beeper_switch);
-        void set_sleep_switch(switch_::Switch *sleep_switch);
+        void set_silence_switch(switch_::Switch *silence_switch);
         void set_xfan_switch(switch_::Switch *plasma_switch);
         void set_save_switch(switch_::Switch *plasma_switch);
 
@@ -111,12 +122,14 @@ class SinclairAC : public Component, public uart::UARTDevice, public climate::Cl
         select::Select *vertical_swing_select_   = nullptr; /* Advanced vertical swing select */
         select::Select *horizontal_swing_select_ = nullptr; /* Advanced horizontal swing select */
 
-        select::Select *display_select_          = nullptr; /* Select for setting display mode */
+        switch_::Switch *display_switch_         = nullptr; /* Switch for display on/off */
         select::Select *display_unit_select_     = nullptr; /* Select for setting display temperature unit */
+
+        select::Select *sleep_select_            = nullptr; /* Select for sleep level */
 
         switch_::Switch *plasma_switch_          = nullptr; /* Switch for plasma */
         switch_::Switch *beeper_switch_          = nullptr; /* Switch for beeper */
-        switch_::Switch *sleep_switch_           = nullptr; /* Switch for sleep */
+        switch_::Switch *silence_switch_         = nullptr; /* Switch for silence */
         switch_::Switch *xfan_switch_            = nullptr; /* Switch for X-fan */
         switch_::Switch *save_switch_            = nullptr; /* Switch for save */
 
@@ -128,9 +141,11 @@ class SinclairAC : public Component, public uart::UARTDevice, public climate::Cl
         std::string display_state_;
         std::string display_unit_state_;
 
+        std::string sleep_state_;
+
         bool plasma_state_;
         bool beeper_state_;
-        bool sleep_state_;
+        bool silence_state_;
         bool xfan_state_;
         bool save_state_;
 
@@ -159,21 +174,25 @@ class SinclairAC : public Component, public uart::UARTDevice, public climate::Cl
         void update_display(const std::string &display);
         void update_display_unit(const std::string &display_unit);
 
+        void update_sleep(const std::string &sleep);
+
         void update_plasma(bool plasma);
         void update_beeper(bool beeper);
-        void update_sleep(bool sleep);
+        void update_silence(bool silence);
         void update_xfan(bool xfan);
         void update_save(bool save);
 
         virtual void on_horizontal_swing_change(const std::string &swing) = 0;
         virtual void on_vertical_swing_change(const std::string &swing) = 0;
 
-        virtual void on_display_change(const std::string &display) = 0;
+        virtual void on_display_change(bool display) = 0;
         virtual void on_display_unit_change(const std::string &display_unit) = 0;
+
+        virtual void on_sleep_change(const std::string &sleep) = 0;
 
         virtual void on_plasma_change(bool plasma) = 0;
         virtual void on_beeper_change(bool beeper) = 0;
-        virtual void on_sleep_change(bool sleep) = 0;
+        virtual void on_silence_change(bool silence) = 0;
         virtual void on_xfan_change(bool xfan) = 0;
         virtual void on_save_change(bool save) = 0;
 

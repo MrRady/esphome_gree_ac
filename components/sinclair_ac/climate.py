@@ -26,12 +26,13 @@ SinclairACSelect = sinclair_ac_ns.class_(
 
 CONF_HORIZONTAL_SWING_SELECT    = "horizontal_swing_select"
 CONF_VERTICAL_SWING_SELECT      = "vertical_swing_select"
-CONF_DISPLAY_SELECT             = "display_select"
+CONF_DISPLAY_SWITCH             = "display_switch"
 CONF_DISPLAY_UNIT_SELECT        = "display_unit_select"
+CONF_SLEEP_SELECT               = "sleep_select"
 
 CONF_PLASMA_SWITCH              = "plasma_switch"
 CONF_BEEPER_SWITCH              = "beeper_switch"
-CONF_SLEEP_SWITCH               = "sleep_switch"
+CONF_SILENCE_SWITCH             = "silence_switch"
 CONF_XFAN_SWITCH                = "xfan_switch"
 CONF_SAVE_SWITCH                = "save_switch"
 
@@ -63,17 +64,16 @@ VERTICAL_SWING_OPTIONS = [
     "11 - Constant - Up",
 ]
 
-DISPLAY_OPTIONS = [
-    "0 - OFF",
-    "1 - Auto",
-    "2 - Set temperature",
-    "3 - Actual temperature",
-    "4 - Outside temperature",
-]
-
 DISPLAY_UNIT_OPTIONS = [
     "C",
     "F",
+]
+
+SLEEP_OPTIONS = [
+    "0 - Off",
+    "1 - Niveau 1",
+    "2 - Niveau 2",
+    "3 - Niveau 3",
 ]
 
 switch_schema = switch.switch_schema(switch.Switch).extend(cv.COMPONENT_SCHEMA).extend(
@@ -87,11 +87,12 @@ SCHEMA = climate.climate_schema(climate.Climate).extend(
     {
         cv.Optional(CONF_HORIZONTAL_SWING_SELECT): select_schema,
         cv.Optional(CONF_VERTICAL_SWING_SELECT): select_schema,
-        cv.Optional(CONF_DISPLAY_SELECT): select_schema,
+        cv.Optional(CONF_DISPLAY_SWITCH): switch_schema,
         cv.Optional(CONF_DISPLAY_UNIT_SELECT): select_schema,
+        cv.Optional(CONF_SLEEP_SELECT): select_schema,
         cv.Optional(CONF_PLASMA_SWITCH): switch_schema,
         cv.Optional(CONF_BEEPER_SWITCH): switch_schema,
-        cv.Optional(CONF_SLEEP_SWITCH): switch_schema,
+        cv.Optional(CONF_SILENCE_SWITCH): switch_schema,
         cv.Optional(CONF_XFAN_SWITCH): switch_schema,
         cv.Optional(CONF_SAVE_SWITCH): switch_schema,
     }
@@ -125,23 +126,23 @@ async def to_code(config):
         await cg.register_component(vswing_select, conf)
         cg.add(var.set_vertical_swing_select(vswing_select))
     
-    if CONF_DISPLAY_SELECT in config:
-        conf = config[CONF_DISPLAY_SELECT]
-        display_select = await select.new_select(conf, options=DISPLAY_OPTIONS)
-        await cg.register_component(display_select, conf)
-        cg.add(var.set_display_select(display_select))
-    
     if CONF_DISPLAY_UNIT_SELECT in config:
         conf = config[CONF_DISPLAY_UNIT_SELECT]
         display_unit_select = await select.new_select(conf, options=DISPLAY_UNIT_OPTIONS)
         await cg.register_component(display_unit_select, conf)
         cg.add(var.set_display_unit_select(display_unit_select))
 
+    if CONF_SLEEP_SELECT in config:
+        conf = config[CONF_SLEEP_SELECT]
+        sleep_sel = await select.new_select(conf, options=SLEEP_OPTIONS)
+        await cg.register_component(sleep_sel, conf)
+        cg.add(var.set_sleep_select(sleep_sel))
+
     if CONF_CURRENT_TEMPERATURE_SENSOR in config:
         sens = await cg.get_variable(config[CONF_CURRENT_TEMPERATURE_SENSOR])
         cg.add(var.set_current_temperature_sensor(sens))
         
-    for s in [CONF_PLASMA_SWITCH, CONF_BEEPER_SWITCH, CONF_SLEEP_SWITCH, CONF_XFAN_SWITCH, CONF_SAVE_SWITCH]:
+    for s in [CONF_PLASMA_SWITCH, CONF_BEEPER_SWITCH, CONF_SILENCE_SWITCH, CONF_XFAN_SWITCH, CONF_SAVE_SWITCH, CONF_DISPLAY_SWITCH]:
         if s in config:
             conf = config[s]
             a_switch = cg.new_Pvariable(conf[CONF_ID])
